@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CCD Tunnel Test</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em auto;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 0.3em;
+        }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        a.button {
+            display: inline-block;
+            margin-top: 1em;
+            padding: 10px 20px;
+            background: #2b6cb0;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        a.button:hover {
+            background: #2c5282;
+        }
+    </style>
+</head>
+
+<body>
+    <p style="text-align: center;"><img src="src/ccd-tunnel-helper.png" width="300px" /></p>
+
+
+    <h1>CCD Tunnel Helper</h1>
+    <p>
+        Click the link below to test the custom protocol handler.
+        If CCD Tunnel Helper is installed, it should open your terminal and start the tunnel:
+    </p>
+
+    <p>
+        <a class="button" href="ccd-tunnel://connect?user=ben&host=ccd07&local_port=2025&remote_port=2025&launch=http%3A%2F%2Flocalhost%3A2025%2Fphpmyadmin%2F">
+            Connect to Dev Server (Port 2025)
+        </a>
+    </p>
+
+    <p>
+        If it doesn't work, check that CCD Tunnel Helper is installed and that the <code>ccd-tunnel://</code> protocol
+        is registered.
+    </p>
+
+</body>
+
+</html>

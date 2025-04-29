@@ -1,0 +1,45 @@
+name: Build CCD Tunnel Helper
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install pkg
+      run: npm install -g pkg
+
+    - name: Install NSIS
+      run: choco install nsis -y
+
+    - name: Build binaries
+      run: pkg .
+
+    - name: Compile NSIS installer
+      run: makensis installers/windows/installer.nsi
+
+    - name: Archive built files
+      uses: actions/upload-artifact@v3
+      with:
+        name: ccd-tunnel-helper-installers
+        path: |
+          dist/
+          ccd-tunnel-helper-setup.exe
+
+    - name: Upload Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*
+          ccd-tunnel-helper-setup.exe
