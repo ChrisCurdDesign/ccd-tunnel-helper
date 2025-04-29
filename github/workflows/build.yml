@@ -1,45 +1,49 @@
-name: Build CCD Tunnel Helper
+name: Build Installers
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-    - name: Install pkg
-      run: npm install -g pkg
+      - name: Install pkg
+        run: npm install -g pkg
 
-    - name: Install NSIS
-      run: choco install nsis -y
+      - name: Install Electron Builder
+        run: npm install -g electron-builder
 
-    - name: Build binaries
-      run: pkg .
+      - name: Set execution permissions (Linux/macOS only)
+        if: runner.os != 'Windows'
+        run: chmod +x ./build.ps1
 
-    - name: Compile NSIS installer
-      run: makensis installers/windows/installer.nsi
+      - name: Install appimagetool (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y appimagetool
 
-    - name: Archive built files
-      uses: actions/upload-artifact@v3
-      with:
-        name: ccd-tunnel-helper-installers
-        path: |
-          dist/
-          ccd-tunnel-helper-setup.exe
+      - name: Run build script
+        shell: pwsh
+        run: ./build.ps1
 
-    - name: Upload Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          dist/*
-          ccd-tunnel-helper-setup.exe
+      - name: Upload dist files
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist-${{ matrix.os }}
+          path: dist/
