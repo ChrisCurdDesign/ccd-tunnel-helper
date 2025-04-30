@@ -12,7 +12,8 @@
     "publish": {
       "provider": "github",
       "owner": "ChrisCurdDesign",
-      "repo": "ccd-tunnel-helper"
+      "repo": "ccd-tunnel-helper",
+      "releaseType": "release"
     },
     "forceCodeSigning": false,
     "publishPolicy": "always",
