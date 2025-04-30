@@ -9,6 +9,11 @@
       "start": "electron .",
       "build": "electron-builder"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "ChrisCurdDesign",
+      "repo": "ccd-tunnel-helper"
+    },
     "dependencies": {},
     "devDependencies": {
       "electron": "^28.3.3",
