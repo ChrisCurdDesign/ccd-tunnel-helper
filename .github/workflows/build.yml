@@ -32,7 +32,7 @@ jobs:
           echo "BUILD_VERSION=1.0.0+build.${DATE}.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Build app
-        run: npm run build -- --em.version=$BUILD_VERSION
+        run: npm run build -- -c.extraMetadata.version=$BUILD_VERSION
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
