@@ -1,16 +1,58 @@
 {
     "name": "ccd-tunnel-helper",
     "version": "1.0.0",
-    "description": "Open SSH tunnels via ccd-tunnel:// links",
-    "bin": "src/ccd-tunnel-helper.js",
-    "pkg": {
-        "assets": [],
-        "targets": [
-            "node18-win-x64",
-            "node18-macos-x64",
-            "node18-linux-x64"
-        ],
-        "outputPath": "dist",
-        "icon": "src/ccd-tunnel-helper.ico"
+    "description": "Auto-connect SSH tunnels via ccd-tunnel:// links",
+    "main": "main.js",
+    "author": "Chris Curd Desgin ltd",
+    "license": "MIT",
+    "scripts": {
+      "start": "electron .",
+      "build": "electron-builder"
+    },
+    "dependencies": {},
+    "devDependencies": {
+      "electron": "^28.3.3",
+      "electron-builder": "^24.13.3"
+    },
+    "build": {
+      "productName": "CCD Tunnel Helper",
+      "appId": "com.ccd.tunnelhelper",
+      "files": [
+        "main.js",
+        "icon.png"
+      ],
+      "extraResources": [
+        {
+          "from": "icon.png",
+          "to": "icon.png"
+        }
+      ],
+      "protocols": [
+        {
+          "name": "CCD Tunnel Protocol",
+          "schemes": ["ccd-tunnel"]
+        }
+      ],
+      "win": {
+        "target": "nsis",
+        "icon": "icon.png",
+        "artifactName": "ccd-tunnel-helper.exe"
+      },
+      "mac": {
+        "target": "dmg",
+        "icon": "icon.png",
+        "category": "public.app-category.utilities"
+      },
+      "linux": {
+        "target": "AppImage",
+        "icon": "icon.png",
+        "category": "Utility"
+      },
+      "nsis": {
+        "oneClick": true,
+        "perMachine": true,
+        "runAfterFinish": true,
+        "allowToChangeInstallationDirectory": false
+      }
     }
-}
+  }

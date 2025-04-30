@@ -1,10 +1,9 @@
-# build.ps1
-Write-Host "🛠 Building CCD Tunnel Helper binaries..."
+Write-Host "🛠 Building unified CCD Tunnel Helper app..."
 
-# Step 1: Build with pkg
-pkg .
+# Step 1: Install dependencies
+npm install
 
-# Step 2: Build Windows Installer
-& "C:\Program Files (x86)\NSIS\makensis.exe" installers/windows/installer.nsi
+# Step 2: Build app using electron-builder
+npm run build
 
-Write-Host "✅ Build complete! Check dist/ and ccd-tunnel-helper-setup.exe"
+Write-Host "✅ Build complete! Check dist/ for output files."

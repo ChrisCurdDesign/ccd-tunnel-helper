@@ -1,49 +1,36 @@
-name: Build Installers
+name: Build CCD Tunnel Helper
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: 18
 
-      - name: Install pkg
-        run: npm install -g pkg
+      - name: Install dependencies
+        run: npm install
 
-      - name: Install Electron Builder
-        run: npm install -g electron-builder
+      - name: Build app
+        run: npm run build
+        shell: bash
 
-      - name: Set execution permissions (Linux/macOS only)
-        if: runner.os != 'Windows'
-        run: chmod +x ./build.ps1
-
-      - name: Install appimagetool (Linux only)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt update
-          sudo apt install -y appimagetool
-
-      - name: Run build script
-        shell: pwsh
-        run: ./build.ps1
-
-      - name: Upload dist files
+      - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: dist-${{ matrix.os }}
+          name: build-${{ matrix.os }}
           path: dist/
