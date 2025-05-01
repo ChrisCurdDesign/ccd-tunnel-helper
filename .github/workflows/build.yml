@@ -69,7 +69,9 @@ jobs:
 
           echo "Creating release for $TAG"
 
-          FILES=$(find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \))
+          FILES=$(find artifacts -path "*/dist/*" -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \))
+          echo "Found files:"
+          echo "$FILES"
 
           gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
