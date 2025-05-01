@@ -48,7 +48,7 @@ jobs:
 
       - name: Build app
         shell: bash
-        run: npx electron-builder --${{ matrix.build_target }} --publish never -c.extraMetadata.version="${{ env.BUILD_VERSION }}"
+        run: npx electron-builder --${{ matrix.build_target }} --publish never -c.extraMetadata.version=${{ env.BUILD_VERSION }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -58,6 +58,9 @@ jobs:
             dist/*.exe
             dist/*.dmg
             dist/*.AppImage
+            dist/*/*.exe
+            dist/*/*.dmg
+            dist/*/*.AppImage
 
   create-release:
     name: Create GitHub Draft Release
@@ -77,7 +80,11 @@ jobs:
 
       - name: Create GitHub Release (draft)
         run: |
-          FILES=$(find artifacts -type f)
+          FILES=$(find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \))
+          if [ -z "$FILES" ]; then
+            echo "❌ No valid release files found."
+            exit 1
+          fi
           gh release create v${{ needs.set-version.outputs.build_version }} \
             --repo ${{ github.repository }} \
             --title "CCD Tunnel Helper ${{ needs.set-version.outputs.build_version }}" \
