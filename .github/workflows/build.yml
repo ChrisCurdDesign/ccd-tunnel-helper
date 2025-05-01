@@ -1,34 +1,20 @@
-name: Build CCD Tunnel Helper
+name: Build and Release CCD Tunnel Helper
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  set-version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.set.outputs.version }}
-    steps:
-      - name: Generate shared version
-        id: set
-        run: |
-          DATE=$(date +'%Y%m%d')
-          VERSION="1.0.0-build.${DATE}.${{ github.run_number }}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
   build:
-    name: Build ${{ matrix.os }}
-    needs: set-version
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+    name: Build on macOS
+    runs-on: macos-latest
+
     env:
-      BUILD_VERSION: ${{ needs.set-version.outputs.version }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -38,78 +24,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build installer
+      - name: Generate version
+        id: set_version
+        run: |
+          DATE=$(date +'%Y%m%d')
+          VERSION="1.0.0-build.${DATE}.${{ github.run_number }}"
+          echo "BUILD_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Build version: $VERSION"
+
+      - name: Build all installers and publish
+        run: |
+          npx electron-builder --mac --win --linux \
+            --publish always \
+            -c.extraMetadata.version=$BUILD_VERSION
         shell: bash
-        run: |
-          npx electron-builder --publish never -c.extraMetadata.version="${BUILD_VERSION}"
-
-
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: installer-${{ matrix.os }}
-          path: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-
-  release:
-    name: Draft GitHub Release
-    runs-on: ubuntu-latest
-    needs: [set-version, build]
-    env:
-      VERSION: ${{ needs.set-version.outputs.version }}
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
-    steps:
-      - name: Download all installers
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create GitHub draft release
-        run: |
-          curl -s -X POST \
-            -H "Authorization: token $GH_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/releases \
-            -d @- <<EOF
-          {
-            "tag_name": "${VERSION}",
-            "name": "${VERSION}",
-            "body": "Installer build for ${VERSION}",
-            "draft": true,
-            "prerelease": false
-          }
-          EOF
-
-      - name: Attach installers to release
-        run: |
-          for i in {1..5}; do
-            RELEASE_ID=$(curl -s \
-              -H "Authorization: token $GH_TOKEN" \
-              https://api.github.com/repos/${{ github.repository }}/releases/tags/${VERSION} \
-              | jq -r .id)
-
-            if [ "$RELEASE_ID" != "null" ]; then
-              break
-            fi
-
-            echo "Waiting for release to appear (attempt $i)..."
-            sleep 2
-          done
-
-          if [ "$RELEASE_ID" = "null" ]; then
-            echo "❌ Release not found for tag ${VERSION}"
-            exit 1
-          fi
-
-          echo "Uploading installers to release ${VERSION}..."
-
-          for file in $(find artifacts -type f \( -iname "*.exe" -o -iname "*.dmg" -o -iname "*.AppImage" \)); do
-            FILENAME=$(basename "$file")
-            echo "Uploading $FILENAME..."
-            curl -s --data-binary @"$file" \
-              -H "Authorization: token $GH_TOKEN" \
-              -H "Content-Type: application/octet-stream" \
-              "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$FILENAME"
-          done
