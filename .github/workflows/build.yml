@@ -60,11 +60,6 @@ jobs:
         with:
           path: artifacts
 
-      - name: List artifact contents
-        run: |
-          echo "Dumping full artifact structure:"
-          find artifacts -print
-
       - name: Create GitHub Release (draft)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -74,9 +69,7 @@ jobs:
 
           echo "Creating release for $TAG"
 
-
-
-          FILES=$(find artifacts -path "*/dist/*" -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \))
+          FILES=$(find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \))
           echo "Found files:"
           echo "$FILES"
 
