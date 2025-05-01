@@ -55,13 +55,10 @@ jobs:
         with:
           name: ${{ matrix.build_target }}-build
           path: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*/*.exe
-            dist/*/*.dmg
-            dist/*/*.AppImage
-
+            dist/win/*.exe
+            dist/mac/*.dmg
+            dist/linux/*.AppImage
+            dist/linux/*.deb
   create-release:
     name: Create GitHub Draft Release
     needs: [set-version, build]
