@@ -1,65 +1,66 @@
 {
-  "name": "ccd-tunnel-helper",
-  "version": "1.0.0",
-  "description": "Auto-connect SSH tunnels via ccd-tunnel:// links",
-  "author": "Ben Beckford <ben@ccdstudios.com>",
-  "license": "MIT",
-  "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "build": "electron-builder"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "electron": "^28.3.3",
-    "electron-builder": "^24.13.3"
-  },
-  "build": {
-    "productName": "CCD Tunnel Helper",
-    "appId": "com.ccd.tunnelhelper",
-    "copyright": "Copyright © 2025 Chris Curd Design Ltd",
-    "files": [
-      "main.js",
-      "icon.png"
-    ],
-    "extraResources": [
-      {
-        "from": "icon.png",
-        "to": "icon.png"
-      }
-    ],
-    "protocols": [
-      {
-        "name": "CCD Tunnel Protocol",
-        "schemes": ["ccd-tunnel"]
-      }
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "icon.png",
-      "artifactName": "ccd-tunnel-helper.exe"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "icon.png",
-      "category": "public.app-category.utilities"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "icon.png",
-      "category": "Utility"
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": true,
-      "runAfterFinish": true,
-      "allowToChangeInstallationDirectory": false
+    "name": "ccd-tunnel-helper",
+    "version": "1.0.0",
+    "description": "Auto-connect SSH tunnels via ccd-tunnel:// links",
+    "author": "Ben Beckford <ben@ccdstudios.com>",
+    "main": "main.js",
+    "license": "MIT",
+    "scripts": {
+      "start": "electron .",
+      "build": "electron-builder --publish always"
     },
     "publish": {
       "provider": "github",
       "owner": "ChrisCurdDesign",
       "repo": "ccd-tunnel-helper",
-      "releaseType": "draft"
+      "releaseType": "release"
+    },
+    "forceCodeSigning": false,
+    "publishPolicy": "always",
+    "dependencies": {},
+    "devDependencies": {
+      "electron": "^28.3.3",
+      "electron-builder": "^24.13.3"
+    },
+    "build": {
+      "productName": "CCD Tunnel Helper",
+      "appId": "com.ccd.tunnelhelper",
+      "files": [
+        "main.js",
+        "icon.png"
+      ],
+      "extraResources": [
+        {
+          "from": "icon.png",
+          "to": "icon.png"
+        }
+      ],
+      "protocols": [
+        {
+          "name": "CCD Tunnel Protocol",
+          "schemes": ["ccd-tunnel"]
+        }
+      ],
+      "win": {
+        "target": "nsis",
+        "icon": "icon.png",
+        "artifactName": "ccd-tunnel-helper.exe"
+      },
+      "mac": {
+        "target": "dmg",
+        "icon": "icon.png",
+        "category": "public.app-category.utilities"
+      },
+      "linux": {
+        "target": "AppImage",
+        "icon": "icon.png",
+        "category": "Utility"
+      },
+      "nsis": {
+        "oneClick": true,
+        "perMachine": true,
+        "runAfterFinish": true,
+        "allowToChangeInstallationDirectory": false
+      }
     }
   }
-}
