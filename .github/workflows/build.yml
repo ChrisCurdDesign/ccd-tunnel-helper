@@ -42,25 +42,29 @@ jobs:
         run: npm install
 
       - name: Build app
-        run: npm run build -- -c.extraMetadata.version=$BUILD_VERSION --publish always
+        run: npm run build -- -c.extraMetadata.version=$BUILD_VERSION --publish never
         shell: bash
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.os }}
-          path: dist/
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
 
-  tag-release:
-    name: Tag build
+  tag-and-release:
+    name: Finalize GitHub Release
     runs-on: ubuntu-latest
     needs: [set-version, build]
     if: github.ref == 'refs/heads/main'
     env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
       BUILD_VERSION: ${{ needs.set-version.outputs.build_version }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
       - name: Create and push tag
         run: |
@@ -69,7 +73,7 @@ jobs:
           git tag v$BUILD_VERSION
           git push origin v$BUILD_VERSION
 
-      - name: Optionally publish release manually (draft)
+      - name: Create GitHub release (draft)
         run: |
           curl -s -X POST \
             -H "Authorization: token $GH_TOKEN" \
@@ -84,3 +88,56 @@ jobs:
             "prerelease": false
           }
           EOF
+
+      - name: Download artifacts from matrix builds
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Attach installers to release
+        run: |
+          release_id=$(curl -s \
+            -H "Authorization: token $GH_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/v$BUILD_VERSION \
+            | jq -r .id)
+
+          if [ "$release_id" = "null" ]; then
+            echo "❌ Failed to locate release ID for tag v$BUILD_VERSION"
+            exit 1
+          fi
+
+          echo "📝 Attaching files to release v$BUILD_VERSION"
+
+          for file in $(find artifacts -type f \( -iname "*.exe" -o -iname "*.dmg" -o -iname "*.AppImage" \)); do
+            filename=$(basename "$file")
+            echo "🔄 Checking for $filename"
+            exists=$(curl -s \
+              -H "Authorization: token $GH_TOKEN" \
+              https://api.github.com/repos/${{ github.repository }}/releases/$release_id/assets \
+              | jq -r --arg name "$filename" '.[] | select(.name == $name) | .id')
+
+            if [ -n "$exists" ]; then
+              echo "⚠️ $filename already exists, skipping"
+              continue
+            fi
+
+            echo "⬆️ Uploading $filename"
+            curl -s --data-binary @"$file" \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              "https://uploads.github.com/repos/${{ github.repository }}/releases/$release_id/assets?name=$filename"
+          done
+
+      - name: Publish the GitHub release
+        run: |
+          release_id=$(curl -s \
+            -H "Authorization: token $GH_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/v$BUILD_VERSION \
+            | jq -r .id)
+
+          echo "🚀 Publishing release v$BUILD_VERSION..."
+          curl -s -X PATCH \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"draft":false}' \
+            https://api.github.com/repos/${{ github.repository }}/releases/$release_id
