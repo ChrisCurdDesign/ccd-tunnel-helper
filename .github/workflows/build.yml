@@ -47,7 +47,10 @@ jobs:
         run: npm install
 
       - name: Build app
-        run: npx electron-builder --${{ matrix.build_target }} --publish never -c.extraMetadata.version=$BUILD_VERSION
+        shell: bash
+        run: |
+          npx electron-builder --${{ matrix.build_target }} --publish never -c.extraMetadata.version="${BUILD_VERSION}"
+
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
