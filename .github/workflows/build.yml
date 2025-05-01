@@ -53,6 +53,7 @@ jobs:
             dist/*.exe
             dist/*.dmg
             dist/*.AppImage
+            dist/*.deb
 
   tag-and-release:
     name: Finalize GitHub Release
@@ -96,19 +97,30 @@ jobs:
 
       - name: Attach installers to release
         run: |
-          release_id=$(curl -s \
-            -H "Authorization: token $GH_TOKEN" \
-            https://api.github.com/repos/${{ github.repository }}/releases/tags/v$BUILD_VERSION \
-            | jq -r .id)
+          # Retry getting release ID
+          for i in {1..5}; do
+            release_id=$(curl -s \
+              -H "Authorization: token $GH_TOKEN" \
+              https://api.github.com/repos/${{ github.repository }}/releases/tags/v$BUILD_VERSION \
+              | jq -r .id)
+
+            if [ "$release_id" != "null" ]; then
+              echo "✅ Found release ID: $release_id"
+              break
+            fi
+
+            echo "⏳ Waiting for release to appear (attempt $i)..."
+            sleep 2
+          done
 
           if [ "$release_id" = "null" ]; then
-            echo "❌ Failed to locate release ID for tag v$BUILD_VERSION"
+            echo "❌ Failed to locate release ID for tag v$BUILD_VERSION after 5 attempts"
             exit 1
           fi
 
           echo "📝 Attaching files to release v$BUILD_VERSION"
 
-          for file in $(find artifacts -type f \( -iname "*.exe" -o -iname "*.dmg" -o -iname "*.AppImage" \)); do
+          for file in $(find artifacts -type f \( -iname "*.exe" -o -iname "*.dmg" -o -iname "*.AppImage" -o -iname "*.deb" \)); do
             filename=$(basename "$file")
             echo "🔄 Checking for $filename"
             exists=$(curl -s \
