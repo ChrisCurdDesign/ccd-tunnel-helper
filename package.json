@@ -44,7 +44,7 @@
       "win": {
         "target": "nsis",
         "icon": "icon.png",
-        "artifactName": "${productName}.exe"
+        "artifactName": "ccd-tunnel-helper.exe"
       },
       "mac": {
         "target": "dmg",

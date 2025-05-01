@@ -2,19 +2,41 @@ name: Build and Release CCD Tunnel Helper
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build on macOS
-    runs-on: macos-latest
-
-    env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
+  set-version:
+    name: Set Build Version
+    runs-on: ubuntu-latest
+    outputs:
+      build_version: ${{ steps.set.outputs.build_version }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Set version based on date and run number
+        id: set
+        run: |
+          DATE=$(date +'%Y%m%d')
+          VERSION="1.0.0-build.${DATE}.${{ github.run_number }}"
+          echo "build_version=$VERSION" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build on ${{ matrix.os }}
+    needs: set-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            build_target: linux
+          - os: macos-latest
+            build_target: mac
+          - os: windows-latest
+            build_target: win
+    env:
+      BUILD_VERSION: ${{ needs.set-version.outputs.build_version }}
+    steps:
+      - uses: actions/checkout@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -24,17 +46,36 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Generate version
-        id: set_version
-        run: |
-          DATE=$(date +'%Y%m%d')
-          VERSION="1.0.0-build.${DATE}.${{ github.run_number }}"
-          echo "BUILD_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Build version: $VERSION"
+      - name: Build app
+        run: npx electron-builder --${{ matrix.build_target }} --publish never -c.extraMetadata.version=$BUILD_VERSION
 
-      - name: Build all installers and publish
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.build_target }}-build
+          path: dist/*
+
+  create-release:
+    name: Create GitHub Draft Release
+    needs: [set-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release (draft)
         run: |
-          npx electron-builder --mac --win --linux \
-            --publish always \
-            -c.extraMetadata.version=$BUILD_VERSION
-        shell: bash
+          gh release create v${{ needs.set-version.outputs.build_version }} \
+            --repo ${{ github.repository }} \
+            --title "CCD Tunnel Helper ${{ needs.set-version.outputs.build_version }}" \
+            --notes "Automated draft release for build ${{ needs.set-version.outputs.build_version }}" \
+            --draft \
+            artifacts/**/*
