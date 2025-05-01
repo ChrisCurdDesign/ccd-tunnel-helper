@@ -73,9 +73,9 @@ jobs:
           echo "Found files:"
           echo "$FILES"
 
-          gh release create "$TAG" \
+          echo "$FILES" | xargs gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --title "CCD Tunnel Helper $VERSION" \
             --notes "Automated draft release for $VERSION" \
-            --draft \
-            $FILES
+            --draft
+
