@@ -47,16 +47,16 @@ jobs:
         run: npm install
 
       - name: Build app
-        shell: bash
-        run: |
-          npx electron-builder --${{ matrix.build_target }} --publish never -c.extraMetadata.version="${BUILD_VERSION}"
-
+        run: npx electron-builder --${{ matrix.build_target }} --publish never -c.extraMetadata.version="${{ env.BUILD_VERSION }}"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.build_target }}-build
-          path: dist/*
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
 
   create-release:
     name: Create GitHub Draft Release
@@ -76,9 +76,10 @@ jobs:
 
       - name: Create GitHub Release (draft)
         run: |
+          FILES=$(find artifacts -type f)
           gh release create v${{ needs.set-version.outputs.build_version }} \
             --repo ${{ github.repository }} \
             --title "CCD Tunnel Helper ${{ needs.set-version.outputs.build_version }}" \
             --notes "Automated draft release for build ${{ needs.set-version.outputs.build_version }}" \
             --draft \
-            artifacts/**/*
+            $FILES
