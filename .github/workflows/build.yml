@@ -12,6 +12,8 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v3
 
@@ -23,17 +25,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Get version from package.json
+      - name: Get package version from package.json
         id: package_version
         shell: bash
-        run: echo "version=$(npm pkg get version --workspaces=false | tr -d '\"')" >> $GITHUB_OUTPUT
+        run: echo "package_version=$(npm pkg get version --workspaces=false | tr -d '\"')" >> $GITHUB_OUTPUT
 
-      - name: Generate version
+      - name: Generate version string
         id: version
         shell: bash
         run: |
           DATE=$(date +"%Y%m%d")
-          VERSION="${{ steps.package_version.outputs.version }}-build.${DATE}.${{ github.run_number }}"
+          VERSION="${{ steps.package_version.outputs.package_version }}-build.${DATE}.${{ github.run_number }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build project
@@ -69,7 +71,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.build.outputs.version }}"
           TAG="v$VERSION"
 
           echo "Creating release for $TAG"
