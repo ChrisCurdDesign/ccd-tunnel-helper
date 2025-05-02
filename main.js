@@ -64,6 +64,21 @@ function showTray(host) {
 
   const contextMenu = Menu.buildFromTemplate([
     { label: `Tunnel active to ${host}`, enabled: false },
+    // add link to the github for the project
+    { label: 'GitHub',
+      click: () => {
+        const url = 'https://github.com/ChrisCurdDesign/ccd-tunnel-helper';
+        let cmd = '';
+        if (process.platform === 'win32') {
+          cmd = `start "" "${url}"`;
+        } else if (process.platform === 'darwin') {
+          cmd = `open "${url}"`;
+        } else {
+          cmd = `xdg-open "${url}"`;
+        }
+        spawn(cmd, { shell: true, detached: true });
+      }
+    },
     { type: 'separator' },
     {
       label: 'Disconnect',
