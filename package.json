@@ -41,10 +41,10 @@
           "schemes": ["ccd-tunnel"]
         }
       ],
+      "artifactName": "ccd-tunnel-helper-${version}-${os}-${arch}.${ext}",
       "win": {
         "target": "nsis",
-        "icon": "icon.png",
-        "artifactName": "ccd-tunnel-helper.exe"
+        "icon": "icon.png"
       },
       "mac": {
         "target": "dmg",
