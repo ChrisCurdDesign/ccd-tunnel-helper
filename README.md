@@ -8,6 +8,8 @@
 
 ## 📦 Installation
 
+To install the CCD Tunnel Helper app, download the [latest release](https://github.com/ChrisCurdDesign/ccd-tunnel-helper/releases/latest) for your operating system.
+
 | Platform | Instructions |
 |:---------|:--------------|
 | **Windows** | Download and run `ccd-tunnel-helper-<version>-win-x64.exe`. |
