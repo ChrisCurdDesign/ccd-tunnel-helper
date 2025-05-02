@@ -1,3 +1,5 @@
+<p style="text-align: center;"><img src="icon.png" alt="CCD Tunnel Helper" width="250px"></p>
+
 # CCD Tunnel Helper
 
 **CCD Tunnel Helper** is a lightweight app that lets you click `ccd-tunnel://` links in your browser to automatically open SSH tunnels in your terminal.
