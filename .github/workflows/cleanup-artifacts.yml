@@ -3,22 +3,35 @@ name: Cleanup Artifacts
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'  # Run daily at 3 AM UTC
+    - cron: '0 3 * * *'  # Runs daily at 3 AM UTC
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install GitHub CLI
-        uses: cli/gh-action@v2
+      - name: Set up GitHub CLI
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-      - name: Delete old artifacts
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | gh auth login --with-token
+
+      - name: Delete old artifacts (older than 3 days)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           DAYS_OLD=3
-          echo "Fetching artifacts older than $DAYS_OLD days..."
+          echo "Cleaning up artifacts older than $DAYS_OLD days..."
 
           gh api repos/${{ github.repository }}/actions/artifacts --paginate -q '.artifacts[] | "\(.id) \(.expired) \(.created_at)"' |
           while read -r id expired created; do
