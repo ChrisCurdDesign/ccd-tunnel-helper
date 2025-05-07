@@ -1,0 +1,35 @@
+name: Cleanup Artifacts
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'  # Runs daily at 3 AM UTC
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Delete old artifacts (older than 3 days)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DAYS_OLD=3
+          echo "Cleaning up artifacts older than $DAYS_OLD days..."
+
+          gh api repos/${{ github.repository }}/actions/artifacts --paginate -q '.artifacts[] | "\(.id) \(.expired) \(.created_at)"' |
+          while read -r id expired created; do
+            if [[ "$expired" == "false" ]]; then
+              created_ts=$(date --date="$created" +%s)
+              cutoff_ts=$(date --date="$DAYS_OLD days ago" +%s)
+              if (( created_ts < cutoff_ts )); then
+                echo "Deleting artifact ID $id (created: $created)..."
+                gh api repos/${{ github.repository }}/actions/artifacts/$id -X DELETE
+              fi
+            fi
+          done
