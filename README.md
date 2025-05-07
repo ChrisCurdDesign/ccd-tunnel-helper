@@ -1,4 +1,4 @@
-<p style="text-align: center;"><img src="icon.png" alt="CCD Tunnel Helper" width="250px"></p>
+<p align="center"><img src="icon.png" alt="CCD Tunnel Helper" width="250px"></p>
 
 # CCD Tunnel Helper
 
