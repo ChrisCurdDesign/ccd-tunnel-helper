@@ -1,0 +1,14 @@
+name: Cleanup Artifacts
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Runs daily at 3 AM UTC
+  workflow_dispatch:      # Allows manual trigger via Actions tab
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: c-hive/delete-artifact@v2
+        with:
+          age: '3 days'   # Delete artifacts older than 3 days
