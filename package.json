@@ -1,13 +1,19 @@
 {
     "name": "ccd-tunnel-helper",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Auto-connect SSH tunnels via ccd-tunnel:// links",
     "author": "Ben Beckford <ben@ccdstudios.com>",
     "main": "main.js",
     "license": "MIT",
     "scripts": {
       "start": "electron .",
-      "build": "electron-builder"
+      "build": "electron-builder",
+      "build:win": "electron-builder --win",
+      "build:mac": "electron-builder --mac",
+      "build:linux": "electron-builder --linux",
+      "build:win:log": "electron-builder --win --c.extraMetadata.enableLogging=true",
+      "build:mac:log": "electron-builder --mac --c.extraMetadata.enableLogging=true",
+      "build:linux:log": "electron-builder --linux --c.extraMetadata.enableLogging=true"
     },
     "publish": {
       "provider": "github",
@@ -27,12 +33,22 @@
       "appId": "com.ccd.tunnelhelper",
       "files": [
         "main.js",
-        "icon.png"
+        "icon.png",
+        "resources/askpass.bat",
+        "resources/askpass.ps1"
       ],
       "extraResources": [
         {
           "from": "icon.png",
           "to": "icon.png"
+        },
+        {
+            "from": "resources/askpass.bat",
+            "to": "askpass.bat"
+        },
+        {
+            "from": "resources/askpass.ps1",
+            "to": "askpass.ps1"
         }
       ],
       "protocols": [

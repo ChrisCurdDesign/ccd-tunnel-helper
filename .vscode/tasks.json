@@ -1,0 +1,61 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "npm",
+            "script": "start",
+            "group": "test",
+            "label": "npm: start",
+            "detail": "Start the Electron app in development mode"
+        },
+        {
+            "type": "npm",
+            "script": "build",
+            "group": "build",
+            "label": "npm: build",
+            "detail": "Build for the current platform"
+        },
+        {
+            "type": "npm",
+            "script": "build:win",
+            "group": "build",
+            "label": "npm: build:win",
+            "detail": "Build for Windows"
+        },
+        {
+            "type": "npm",
+            "script": "build:win:log",
+            "group": "build",
+            "label": "npm: build:win:log",
+            "detail": "Build for Windows with logging enabled"
+        },
+        {
+            "type": "npm",
+            "script": "build:mac",
+            "group": "build",
+            "label": "npm: build:mac",
+            "detail": "Build for macOS"
+        },
+        {
+            "type": "npm",
+            "script": "build:mac:log",
+            "group": "build",
+            "label": "npm: build:mac:log",
+            "detail": "Build for macOS with logging enabled"
+        },
+        {
+            "type": "npm",
+            "script": "build:linux",
+            "group": "build",
+            "label": "npm: build:linux",
+            "detail": "Build for Linux"
+        },
+        {
+            "type": "npm",
+            "script": "build:linux:log",
+            "group": "build",
+            "label": "npm: build:linux:log",
+            "detail": "Build for Linux with logging enabled"
+        }
+    ]
+}
