@@ -228,17 +228,26 @@ function updateTrayMenu() {
     });
   }
 
-  const tunnelEntries = Array.from(tunnels.entries()).map(([key, { sshProcess }]) => {
+  const tunnelEntries = Array.from(tunnels.entries()).map(([key, { sshProcess, launchUrl }]) => {
+    const submenu = [];
+    if (launchUrl) {
+      submenu.push({
+        label: 'Open',
+        click: () => {
+          openLaunchUrl(launchUrl);
+        },
+      });
+    }
+    submenu.push({
+      label: 'Disconnect',
+      click: () => {
+        disconnectTunnel(key);
+      },
+    });
+
     return {
       label: `Tunnel: ${key}`,
-      submenu: [
-        {
-          label: 'Disconnect',
-          click: () => {
-            disconnectTunnel(key);
-          },
-        }
-      ],
+      submenu: submenu,
     };
   });
 
