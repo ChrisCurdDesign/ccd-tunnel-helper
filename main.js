@@ -1,5 +1,5 @@
 const { app, Menu, Tray, dialog, Notification, powerMonitor } = require('electron');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -85,6 +85,93 @@ function checkPort(port) {
   });
 }
 
+async function checkAndPromptHost(host) {
+  const execAsync = (cmd) => new Promise((resolve, reject) => {
+    exec(cmd, (error, stdout, stderr) => {
+      // ssh-keygen returns exit code 1 if not found, which is an error in exec
+      if (error && error.code !== 1) {
+        // Real error (command not found, etc)
+        // Check if it's just "host not found" (code 1)
+      }
+      resolve({ error, stdout, stderr });
+    });
+  });
+
+  // 1. Check if known
+  const { error: findError } = await execAsync(`ssh-keygen -F ${host}`);
+  if (!findError) {
+    // Found (exit code 0)
+    return true;
+  }
+
+  // 2. Scan for keys
+  const { stdout: scanOutput } = await execAsync(`ssh-keyscan ${host}`);
+  if (!scanOutput || !scanOutput.trim()) {
+      return true; // Let SSH handle it naturally if scanning fails
+  }
+
+  // 3. Get fingerprints
+  let fingerprints = '';
+  try {
+     const child = spawn('ssh-keygen', ['-l', '-f', '-']);
+     child.stdin.write(scanOutput);
+     child.stdin.end();
+
+     for await (const data of child.stdout) {
+         fingerprints += data.toString();
+     }
+  } catch (err) {
+      log(`Fingerprint generation failed: ${err.message}`);
+      return true; // Fallback to SSH
+  }
+
+  if (!fingerprints) return true;
+
+  // 4. Prompt
+  // Clean up fingerprints for display
+  const fingerprintMsg = fingerprints.trim();
+
+  // "You probably haven't connected to this host before."
+  // "The authenticity of host 'ccd08.ccd.systems (34.89.16.156)' can't be established."
+  // "ED25519 key fingerprint is SHA256:..."
+  // "Are you sure you want to continue connecting?"
+
+  const message = `You probably haven't connected to this host before.\n\nThe authenticity of host '${host}' can't be established.\n\n${fingerprintMsg}\n\nAre you sure you want to continue connecting?`;
+
+  const { response } = await dialog.showMessageBox({
+        type: 'warning',
+        buttons: ['Yes', 'No'],
+        defaultId: 1,
+        cancelId: 1,
+        title: 'Security Warning',
+        message: 'Unknown Host',
+        detail: message,
+        noLink: true
+  });
+
+  if (response === 0) {
+      // User said Yes. Add to known_hosts
+      const sshDir = path.join(app.getPath('home'), '.ssh');
+      const knownHostsPath = path.join(sshDir, 'known_hosts');
+
+      try {
+          if (!fs.existsSync(sshDir)) {
+              fs.mkdirSync(sshDir, { recursive: true });
+          }
+          fs.appendFileSync(knownHostsPath, scanOutput + '\n');
+          log(`Added ${host} to known_hosts.`);
+          return true;
+      } catch (err) {
+          log(`Failed to write known_hosts: ${err.message}`);
+          dialog.showErrorBox('Error', 'Failed to save host key. Connection may fail.');
+          return false;
+      }
+  } else {
+      // User said No
+      return false;
+  }
+}
+
 async function findAvailablePort(startPort) {
   let port = parseInt(startPort, 10);
   while (!(await checkPort(port))) {
@@ -140,6 +227,19 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
       log(msg);
       if (launchUrl) openLaunchUrl(launchUrl);
       return;
+  }
+
+  // Pre-check host authenticity
+  try {
+      const allowed = await checkAndPromptHost(host);
+      if (!allowed) {
+          log(`Connection to ${host} aborted by user (Host verification rejected).`);
+          return;
+      }
+  } catch (err) {
+      log(`Host verification check error: ${err.message}`);
+      // Proceed blindly? or abort?
+      // Proceeding lets standard SSH handling take over
   }
 
   const sshArgs = ['-v', '-L', `${finalPort}:127.0.0.1:${remotePort}`];
@@ -202,11 +302,11 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
             let errorMessage = `SSH exited with code ${code}`;
 
             const errors = [];
-            if (stderrOutput.includes('invalid format')) {
-                errors.push('The SSH key format is invalid. Native SSH requires OpenSSH format keys, but a PuTTY (.ppk) key was likely detected.\nPlease convert your key to OpenSSH format using PuTTYgen.');
+            if (stderrOutput.includes('Invalid SSH Key Format')) {
+                errors.push('The SSH key format is invalid😔\n\nNative SSH requires OpenSSH format keys, but a PuTTY (.ppk) key was likely detected 🤦\n\nThere should be an OpenSSH formatted key in 1Password already, but otherwise please convert your key to OpenSSH format using PuTTYgen 🫡');
             }
-            if (stderrOutput.includes('Permission denied')) {
-                errors.push('Authentication failed. Please check your SSH keys and permissions.');
+            if (stderrOutput.includes('Permission Denied')) {
+                errors.push('Authentication failed 😔\n\nHave you set this host up in your SSH config? 🤔\n\nPlease check your SSH keys and permissions 🫡');
             }
 
             if (errors.length > 0) {
