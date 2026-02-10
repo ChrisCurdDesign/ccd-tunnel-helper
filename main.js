@@ -1,4 +1,4 @@
-const { app, Menu, Tray, dialog, Notification } = require('electron');
+const { app, Menu, Tray, dialog, Notification, powerMonitor } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -8,6 +8,7 @@ const packageJson = require('./package.json');
 
 let tray = null;
 const tunnels = new Map(); // key: `${host}:${localPort}`, value: { sshProcess, launchUrl }
+let isSuspending = false;
 const enableLogging = !app.isPackaged || packageJson.enableLogging === true;
 
 function showNotification(title, body) {
@@ -35,7 +36,7 @@ function parseTunnelUrl(url) {
   try {
     const parsed = new URL(url);
 
-    const user = parsed.searchParams.get('user') || 'root';
+    const user = parsed.searchParams.get('force_user') || null;
     const host = parsed.searchParams.get('host') || '127.0.0.1';
     const localPort = parsed.searchParams.get('local_port') || '10000';
     const remotePort = parsed.searchParams.get('remote_port') || localPort;
@@ -141,7 +142,13 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
       return;
   }
 
-  const sshArgs = ['-v', '-L', `${finalPort}:127.0.0.1:${remotePort}`, `${user}@${host}`];
+  const sshArgs = ['-v', '-L', `${finalPort}:127.0.0.1:${remotePort}`];
+  if (user) {
+    sshArgs.push(`${user}@${host}`);
+  } else {
+    sshArgs.push(host);
+  }
+
   const msg = `Opening SSH tunnel: ssh ${sshArgs.join(' ')}`;
   log(msg);
   console.log(msg);
@@ -184,6 +191,14 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
         updateTrayMenu();
 
         if (code !== 0 && code !== null) {
+            if (isSuspending) {
+              log(`Suppressing error for ${activeKey} due to system suspension.`);
+              if (tunnels.size === 0) {
+                app.quit();
+              }
+              return;
+            }
+
             let errorMessage = `SSH exited with code ${code}`;
 
             const errors = [];
@@ -255,7 +270,7 @@ function updateTrayMenu() {
     ...tunnelEntries,
     { type: 'separator' },
     {
-      label: 'GitHub',
+      label: `GitHub - ccd-tunnel-helper v${packageJson.version}`,
       click: () => {
         const url = 'https://github.com/ChrisCurdDesign/ccd-tunnel-helper';
         const cmd = process.platform === 'win32'
@@ -270,8 +285,9 @@ function updateTrayMenu() {
     {
       label: 'Exit All Tunnels',
       click: () => {
+        showNotification('Tunnels Disconnected', 'All tunnels disconnected, bye!');
         for (const key of tunnels.keys()) {
-          disconnectTunnel(key);
+          disconnectTunnel(key, true);
         }
         app.quit();
       }
@@ -281,7 +297,7 @@ function updateTrayMenu() {
   tray.setContextMenu(contextMenu);
 }
 
-function disconnectTunnel(key) {
+function disconnectTunnel(key, suppressNotification = false) {
   const tunnel = tunnels.get(key);
   if (!tunnel) return;
 
@@ -294,7 +310,9 @@ function disconnectTunnel(key) {
     const msg = `Tunnel ${key} disconnected.`;
     log(msg);
     console.log(msg);
-    showNotification('Tunnel Disconnected', `Disconnected from ${key}`);
+    if (!suppressNotification) {
+      showNotification('Tunnel Disconnected', `Disconnected from ${key}`);
+    }
   } catch (err) {
     const msg = `Failed to kill SSH process for ${key}: ${err.message}`;
     log(msg);
@@ -323,6 +341,20 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     log('App is ready.');
+
+    powerMonitor.on('suspend', () => {
+      log('System suspending. Suppressing tunnel errors.');
+      isSuspending = true;
+    });
+
+    powerMonitor.on('resume', () => {
+      log('System resuming. Will clear suppression after delay.');
+      setTimeout(() => {
+        isSuspending = false;
+        log('Tunnel error suppression cleared.');
+      }, 10000);
+    });
+
     if (app.isPackaged && !app.isDefaultProtocolClient('ccd-tunnel')) {
       const exePath = process.execPath;
       app.setAsDefaultProtocolClient('ccd-tunnel', exePath, []);
