@@ -1,4 +1,4 @@
-const { app, Menu, Tray, dialog, Notification, powerMonitor } = require('electron');
+const { app, Menu, Tray, dialog, Notification, powerMonitor, BrowserWindow, ipcMain } = require('electron');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -10,6 +10,186 @@ let tray = null;
 const tunnels = new Map(); // key: `${host}:${localPort}`, value: { sshProcess, launchUrl }
 let isSuspending = false;
 const enableLogging = !app.isPackaged || packageJson.enableLogging === true;
+
+function showCustomDialog({ title, message, detail, buttons = ['OK'] }) {
+  return new Promise(resolve => {
+    const parent = BrowserWindow.getFocusedWindow();
+    const width = 600;
+    const win = new BrowserWindow({
+        width: width,
+        height: 100, // Initial small height
+        backgroundColor: '#1e1e1e',
+        show: false,
+        title: title,
+        parent: parent,
+        modal: !!parent,
+        resizable: false,
+        minimizable: false,
+        maximizable: false,
+        frame: true,
+        icon: path.join(process.resourcesPath, 'icon.png'),
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
+
+    win.setMenu(null);
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                background-color: #1e1e1e;
+                color: #cccccc;
+                margin: 0;
+                padding: 24px;
+                display: flex;
+                flex-direction: column;
+                height: auto;
+                min-height: fit-content;
+                box-sizing: border-box;
+                user-select: none;
+                font-size: 16px;
+            }
+            h3 {
+                margin-top: 0;
+                font-size: 20px;
+                font-weight: 600;
+                margin-bottom: 8px;
+                color: #ffffff;
+            }
+            .message-header {
+                font-size: 16px;
+                margin-bottom: 12px;
+                color: #e0e0e0;
+            }
+            .detail {
+                flex: 1;
+                font-size: 16px;
+                line-height: 1.5;
+                white-space: pre-wrap;
+                overflow-y: auto;
+                max-height: 400px;
+                padding: 5px;
+                margin-bottom: 20px;
+                color: #d4d4d4;
+            }
+            .buttons {
+                display: flex;
+                justify-content: flex-end;
+                gap: 12px;
+            }
+            button {
+                background-color: #3e3e3e;
+                color: white;
+                border: 1px solid #454545;
+                padding: 8px 20px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                min-width: 80px;
+                transition: background-color 0.1s;
+            }
+            button:hover {
+                background-color: #4e4e4e;
+            }
+            button:focus {
+                outline: 1px solid #0078d4;
+                border-color: #0078d4;
+            }
+            button.primary {
+                background-color: #0078d4;
+                border-color: #0078d4;
+            }
+            button.primary:hover {
+                background-color: #106ebe;
+                border-color: #106ebe;
+            }
+            /* Scrollbar styling */
+            ::-webkit-scrollbar { width: 10px; }
+            ::-webkit-scrollbar-track { background: #1e1e1e; }
+            ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; border: 2px solid #1e1e1e; }
+            ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+        </style>
+    </head>
+    <body onkeydown="handleKey(event)">
+        <h3>${title}</h3>
+        ${message ? `<div class="message-header">${message}</div>` : ''}
+        <div class="detail">${detail ? detail : ''}</div>
+        <div class="buttons">
+            ${buttons.map((btn, i) => `<button id="btn-${i}" class="${i === 0 ? 'primary' : ''}" onclick="reply(${i})">${btn}</button>`).join('')}
+        </div>
+        <script>
+            const { ipcRenderer } = require('electron');
+
+            function reply(i) {
+                // Disable buttons to prevent double click
+                const btns = document.querySelectorAll('button');
+                btns.forEach(b => b.disabled = true);
+                ipcRenderer.send('dialog-reply-${win.id}', i);
+            }
+
+            function handleKey(e) {
+                if (e.key === 'Escape') {
+                    reply(${buttons.length - 1});
+                }
+            }
+
+            window.onload = () => {
+                const primary = document.querySelector('.primary') || document.querySelector('button');
+                if (primary) primary.focus();
+
+                // Send content height
+                const height = document.body.scrollHeight;
+                ipcRenderer.send('dialog-resize-${win.id}', height);
+            };
+        </script>
+    </body>
+    </html>
+    `;
+
+    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+    win.loadURL(dataUrl);
+
+    // Initial show replaced by resize event
+    ipcMain.once(`dialog-resize-${win.id}`, (event, height) => {
+        // Adjust height for window frame (approx 30-40px depending on OS, but setContentSize sets client area usually)
+        // Electron setContentSize sets the client area size (inside the window frame).
+        // Since document.body.scrollHeight is the content height, this should work.
+        win.setContentSize(width, Math.ceil(height));
+        win.center();
+        win.show();
+    });
+
+    // Cleanup helper
+    let resolved = false;
+    const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        // if window is still exists ??
+    };
+
+    ipcMain.once(`dialog-reply-${win.id}`, (event, index) => {
+        if (resolved) return;
+        resolved = true;
+        resolve({ response: index });
+        // Small timeout to allow button animation or similar? No, just close.
+        win.close();
+    });
+
+    win.on('closed', () => {
+       if (!resolved) {
+           resolved = true;
+           resolve({ response: buttons.length - 1 });
+       }
+    });
+  });
+}
 
 function showNotification(title, body) {
   if (Notification.isSupported()) {
@@ -138,15 +318,11 @@ async function checkAndPromptHost(host) {
 
   const message = `You probably haven't connected to this host before.\n\nThe authenticity of host '${host}' can't be established.\n\n${fingerprintMsg}\n\nAre you sure you want to continue connecting?`;
 
-  const { response } = await dialog.showMessageBox({
-        type: 'warning',
-        buttons: ['Yes', 'No'],
-        defaultId: 1,
-        cancelId: 1,
+  const { response } = await showCustomDialog({
         title: 'Security Warning',
         message: 'Unknown Host',
         detail: message,
-        noLink: true
+        buttons: ['Yes', 'No']
   });
 
   if (response === 0) {
@@ -163,7 +339,12 @@ async function checkAndPromptHost(host) {
           return true;
       } catch (err) {
           log(`Failed to write known_hosts: ${err.message}`);
-          dialog.showErrorBox('Error', 'Failed to save host key. Connection may fail.');
+          showCustomDialog({
+            title: 'Error',
+            message: 'Save Failed',
+            detail: 'Failed to save host key. Connection may fail.',
+            buttons: ['OK']
+          });
           return false;
       }
   } else {
@@ -199,7 +380,12 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
      finalPort = await findAvailablePort(localPort);
   } catch (err) {
      log(`Error finding port: ${err.message}`);
-     dialog.showErrorBox('Port Error', `Could not find an available port starting from ${localPort}`);
+     showCustomDialog({
+        title: 'Port Error',
+        message: 'Port Allocation Failed',
+        detail: `Could not find an available port starting from ${localPort}`,
+        buttons: ['OK']
+     });
      return;
   }
 
@@ -283,7 +469,7 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
     }
   });
 
-  sshProcess.on('close', (code) => {
+  sshProcess.on('close', async (code) => {
     log(`SSH process exited with code ${code}`);
 
     if (tunnels.has(activeKey)) {
@@ -300,20 +486,29 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
             }
 
             let errorMessage = `SSH exited with code ${code}`;
+            const outputLower = stderrOutput.toLowerCase();
 
             const errors = [];
-            if (stderrOutput.includes('Invalid SSH Key Format')) {
+            if (outputLower.includes('invalid format') || outputLower.includes('invalid ssh key format')) {
                 errors.push('The SSH key format is invalid😔\n\nNative SSH requires OpenSSH format keys, but a PuTTY (.ppk) key was likely detected 🤦\n\nThere should be an OpenSSH formatted key in 1Password already, but otherwise please convert your key to OpenSSH format using PuTTYgen 🫡');
             }
-            if (stderrOutput.includes('Permission Denied')) {
+            if (outputLower.includes('permission denied')) {
                 errors.push('Authentication failed 😔\n\nHave you set this host up in your SSH config? 🤔\n\nPlease check your SSH keys and permissions 🫡');
+            }
+            if (outputLower.includes('could not resolve hostname')) {
+                errors.push(`Could not find host '${host}' 😔\n\nHave you added this host to your SSH config yet? 🤔\n\nPlease check your ~/.ssh/config file 🫡`);
             }
 
             if (errors.length > 0) {
                 errorMessage += '\n\n' + errors.join('\n\n');
             }
 
-            dialog.showErrorBox('Tunnel Error', errorMessage);
+            await showCustomDialog({
+                title: 'Tunnel Error',
+                message: 'Connection Failed',
+                detail: errorMessage,
+                buttons: ['OK']
+            });
 
             if (tunnels.size === 0) {
                 app.quit();
@@ -468,10 +663,11 @@ if (!gotLock) {
     if (tunnelUrl) {
       handleTunnel(tunnelUrl);
     } else {
-      dialog.showMessageBox({
-        type: 'info',
+      showCustomDialog({
         title: 'CCD Tunnel Helper',
-        message: 'CCD Tunnel Helper was successfully installed and is now ready to handle ccd-tunnel:// links.',
+        message: 'Ready',
+        detail: 'CCD Tunnel Helper was successfully installed and is now ready to handle ccd-tunnel:// links.',
+        buttons: ['OK']
       }).then(() => {
         app.quit();
       });
