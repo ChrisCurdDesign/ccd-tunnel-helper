@@ -1,0 +1,113 @@
+name: Publish Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      is_new_version: ${{ steps.check_tag.outputs.is_new }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch all history for tags
+
+      - name: Get version from package.json
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if version tag exists
+        id: check_tag
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+        run: |
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists."
+            echo "is_new=false" >> $GITHUB_OUTPUT
+          else
+            echo "Tag v$VERSION does not exist. Creating new release."
+            echo "is_new=true" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    name: Build on ${{ matrix.os }}
+    needs: check-version
+    if: needs.check-version.outputs.is_new_version == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        shell: bash
+        run: npx electron-builder --publish never -c.extraMetadata.version="$VERSION"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.yml
+            dist/*.blockmap
+
+  publish:
+    name: Publish GitHub Release
+    needs: [check-version, build]
+    if: needs.check-version.outputs.is_new_version == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          TAG="v$VERSION"
+          echo "Publishing release for $TAG"
+
+          # Find the artifact files
+          FILES=$(find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \))
+
+          echo "Files to upload:"
+          echo "$FILES"
+
+          # Create release and upload files
+          # This command will automatically create the tag if it doesn't exist
+          echo "$FILES" | xargs gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Release $TAG" \
+            --generate-notes \
+            --latest
