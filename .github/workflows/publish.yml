@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'package.json'
+      - '.github/workflows/publish.yml'
 
 jobs:
   check-version:
@@ -108,6 +109,8 @@ jobs:
           # Create release and upload files
           # This command will automatically create the tag if it doesn't exist
           # We use --clobber to overwrite assets if they partially exist from a failed run
+          # Using echo and xargs to handle the list of files safely
+          echo "$FILES" | xargs -d '\n' gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Release $TAG" \
             --generate-notes \
