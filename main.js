@@ -1,4 +1,5 @@
 const { app, Menu, Tray, dialog, Notification, powerMonitor, BrowserWindow, ipcMain, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -6,6 +7,12 @@ const os = require('os');
 const net = require('net');
 const dns = require('dns');
 const packageJson = require('./package.json');
+
+autoUpdater.logger = require('electron-log');
+autoUpdater.logger.transports.file.level = 'info';
+// DISABLE_CODE_SIGNING_CHECK: Required for self-signed or null-signed updates
+autoUpdater.skipUpdateExpiredCheck = true;
+// autoUpdater.forceDevUpdateConfig = true; // Uncomment if testing dev builds locally
 
 let tray = null;
 const tunnels = new Map(); // key: `${host}:${localPort}`, value: { sshProcess, launchUrl }
@@ -628,6 +635,13 @@ function updateTrayMenu() {
         spawn(cmd, { shell: true, detached: true });
       },
     },
+    {
+      label: 'Check for Updates',
+      click: () => {
+        log('Manual check for updates triggered.');
+        autoUpdater.checkForUpdatesAndNotify();
+      }
+    },
     { type: 'separator' },
     {
       label: 'Exit All Tunnels',
@@ -697,6 +711,30 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     log('App is ready.');
+
+    autoUpdater.checkForUpdatesAndNotify();
+
+    autoUpdater.on('checking-for-update', () => {
+      log('Checking for update...');
+    });
+    autoUpdater.on('update-available', (info) => {
+      log('Update available: ' + info.version);
+    });
+    autoUpdater.on('update-not-available', (info) => {
+      log('Update not available.');
+    });
+    autoUpdater.on('error', (err) => {
+      log('Error in auto-updater: ' + err);
+    });
+    autoUpdater.on('download-progress', (progressObj) => {
+      let log_message = "Download speed: " + progressObj.bytesPerSecond;
+      log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+      log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+      log(log_message);
+    });
+    autoUpdater.on('update-downloaded', (info) => {
+      log('Update downloaded: ' + info.version);
+    });
 
     powerMonitor.on('suspend', () => {
       log('System suspending. Suppressing tunnel errors.');

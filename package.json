@@ -1,82 +1,91 @@
 {
     "name": "ccd-tunnel-helper",
-    "version": "1.3.6",
+    "version": "1.3.7",
     "description": "Auto-connect SSH tunnels via ccd-tunnel:// links",
     "author": "Ben Beckford <ben@ccdstudios.com>",
     "main": "main.js",
     "license": "MIT",
     "scripts": {
-      "start": "electron .",
-      "build": "electron-builder",
-      "build:win": "electron-builder --win",
-      "build:mac": "electron-builder --mac",
-      "build:linux": "electron-builder --linux",
-      "build:win:log": "electron-builder --win --c.extraMetadata.enableLogging=true",
-      "build:mac:log": "electron-builder --mac --c.extraMetadata.enableLogging=true",
-      "build:linux:log": "electron-builder --linux --c.extraMetadata.enableLogging=true"
+        "start": "electron .",
+        "build": "electron-builder",
+        "build:win": "electron-builder --win",
+        "build:mac": "electron-builder --mac",
+        "build:linux": "electron-builder --linux",
+        "build:win:log": "electron-builder --win --c.extraMetadata.enableLogging=true",
+        "build:mac:log": "electron-builder --mac --c.extraMetadata.enableLogging=true",
+        "build:linux:log": "electron-builder --linux --c.extraMetadata.enableLogging=true"
     },
     "publish": {
-      "provider": "github",
-      "owner": "ChrisCurdDesign",
-      "repo": "ccd-tunnel-helper",
-      "releaseType": "release"
+        "provider": "github",
+        "owner": "ChrisCurdDesign",
+        "repo": "ccd-tunnel-helper",
+        "releaseType": "release"
     },
-    "forceCodeSigning": false,
+
     "publishPolicy": "always",
-    "dependencies": {},
+    "dependencies": {
+        "electron-log": "^5.4.3",
+        "electron-updater": "^6.7.3"
+    },
     "devDependencies": {
-      "electron": "^28.3.3",
-      "electron-builder": "^24.13.3"
+        "electron": "^28.3.3",
+        "electron-builder": "^24.13.3"
     },
     "build": {
-      "productName": "CCD Tunnel Helper",
-      "appId": "com.ccd.tunnelhelper",
-      "files": [
-        "main.js",
-        "icon.png",
-        "resources/askpass.bat",
-        "resources/askpass.ps1"
-      ],
-      "extraResources": [
-        {
-          "from": "icon.png",
-          "to": "icon.png"
+        "productName": "CCD Tunnel Helper",
+        "appId": "com.ccd.tunnelhelper",
+        "win": {
+           "verifyUpdateCodeSignature": false,
+           "signingHashAlgorithms": ["sha256"]
         },
-        {
-            "from": "resources/askpass.bat",
-            "to": "askpass.bat"
+        "files": [
+            "main.js",
+            "icon.png",
+            "resources/askpass.bat",
+            "resources/askpass.ps1"
+        ],
+        "extraResources": [
+            {
+                "from": "icon.png",
+                "to": "icon.png"
+            },
+            {
+                "from": "resources/askpass.bat",
+                "to": "askpass.bat"
+            },
+            {
+                "from": "resources/askpass.ps1",
+                "to": "askpass.ps1"
+            }
+        ],
+        "protocols": [
+            {
+                "name": "CCD Tunnel Protocol",
+                "schemes": [
+                    "ccd-tunnel"
+                ]
+            }
+        ],
+        "artifactName": "ccd-tunnel-helper-${version}-${os}-${arch}.${ext}",
+        "win": {
+            "target": "nsis",
+            "icon": "icon.png"
         },
-        {
-            "from": "resources/askpass.ps1",
-            "to": "askpass.ps1"
+        "mac": {
+            "target": "dmg",
+            "icon": "icon.png",
+            "category": "public.app-category.utilities"
+        },
+        "linux": {
+            "target": "AppImage",
+            "icon": "icon.png",
+            "category": "Utility"
+        },
+        "nsis": {
+            "oneClick": true,
+            "perMachine": true,
+            "runAfterFinish": true,
+            "allowToChangeInstallationDirectory": false
         }
-      ],
-      "protocols": [
-        {
-          "name": "CCD Tunnel Protocol",
-          "schemes": ["ccd-tunnel"]
-        }
-      ],
-      "artifactName": "ccd-tunnel-helper-${version}-${os}-${arch}.${ext}",
-      "win": {
-        "target": "nsis",
-        "icon": "icon.png"
-      },
-      "mac": {
-        "target": "dmg",
-        "icon": "icon.png",
-        "category": "public.app-category.utilities"
-      },
-      "linux": {
-        "target": "AppImage",
-        "icon": "icon.png",
-        "category": "Utility"
-      },
-      "nsis": {
-        "oneClick": true,
-        "perMachine": true,
-        "runAfterFinish": true,
-        "allowToChangeInstallationDirectory": false
-      }
     }
-  }
+}
