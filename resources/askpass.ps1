@@ -11,24 +11,41 @@ $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
 $form.Topmost = $true
+$form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#1e1e1e")
+$form.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#cccccc")
 
 $label = New-Object System.Windows.Forms.Label
 $label.Location = New-Object System.Drawing.Point(10,15)
 $label.Text = $prompt
 $label.Size = New-Object System.Drawing.Size(425,100)
+$label.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#cccccc")
+$label.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 
 $textBox = New-Object System.Windows.Forms.TextBox
 $textBox.Size = New-Object System.Drawing.Size(425,20)
 $textBox.PasswordChar = "*"
+$textBox.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#333333")
+$textBox.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ffffff")
+$textBox.BorderStyle = "FixedSingle"
 
 $okButton = New-Object System.Windows.Forms.Button
 $okButton.Size = New-Object System.Drawing.Size(95,30)
 $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+$okButton.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#0078d4")
+$okButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ffffff")
+$okButton.FlatStyle = "Flat"
+$okButton.FlatAppearance.BorderSize = 0
+$okButton.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $form.AcceptButton = $okButton
 
 $cancelButton = New-Object System.Windows.Forms.Button
 $cancelButton.Size = New-Object System.Drawing.Size(95,30)
 $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+$cancelButton.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#3e3e3e")
+$cancelButton.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#ffffff")
+$cancelButton.FlatStyle = "Flat"
+$cancelButton.FlatAppearance.BorderSize = 0
+$cancelButton.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $form.CancelButton = $cancelButton
 
 if ($isConfirmation) {

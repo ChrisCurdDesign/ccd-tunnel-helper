@@ -1,9 +1,10 @@
-const { app, Menu, Tray, dialog, Notification, powerMonitor, BrowserWindow, ipcMain } = require('electron');
+const { app, Menu, Tray, dialog, Notification, powerMonitor, BrowserWindow, ipcMain, shell } = require('electron');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const net = require('net');
+const dns = require('dns');
 const packageJson = require('./package.json');
 
 let tray = null;
@@ -164,6 +165,7 @@ function showCustomDialog({ title, message, detail, buttons = ['OK'] }) {
         win.setContentSize(width, Math.ceil(height));
         win.center();
         win.show();
+        shell.beep();
     });
 
     // Cleanup helper
@@ -277,16 +279,38 @@ async function checkAndPromptHost(host) {
     });
   });
 
+  const checkKeyExists = async (h) => {
+      try {
+          const { error } = await execAsync(`ssh-keygen -F ${h}`);
+          return !error;
+      } catch (e) { return false; }
+  };
+
+  // Resolve IP to check both
+  let ip = null;
+  try {
+      const lookup = require('util').promisify(dns.lookup);
+      const { address } = await lookup(host);
+      if (address !== host) ip = address;
+  } catch (e) { /* ignore */ }
+
   // 1. Check if known
-  const { error: findError } = await execAsync(`ssh-keygen -F ${host}`);
-  if (!findError) {
-    // Found (exit code 0)
-    return true;
+  const hostKnown = await checkKeyExists(host);
+  const ipKnown = ip ? await checkKeyExists(ip) : true;
+
+  if (hostKnown && ipKnown) {
+      return true;
   }
 
-  // 2. Scan for keys
-  const { stdout: scanOutput } = await execAsync(`ssh-keyscan ${host}`);
+  // 2. Scan for keys (scan both host and IP to be sure)
+  showNotification('Verify Host', 'Checking host authenticity...');
+
+  const scanTarget = ip ? `${host} ${ip}` : host;
+  // Note: if scanning multiple args, ssh-keyscan outputs entries for each.
+
+  const { stdout: scanOutput, stderr: scanError } = await execAsync(`ssh-keyscan ${scanTarget}`);
   if (!scanOutput || !scanOutput.trim()) {
+      log(`ssh-keyscan returned empty output. Error: ${scanError}`);
       return true; // Let SSH handle it naturally if scanning fails
   }
 
@@ -312,11 +336,11 @@ async function checkAndPromptHost(host) {
   const fingerprintMsg = fingerprints.trim();
 
   // "You probably haven't connected to this host before."
-  // "The authenticity of host 'ccd08.ccd.systems (34.89.16.156)' can't be established."
+  // "The authenticity of host '<hostname> (<ip address>)' can't be established."
   // "ED25519 key fingerprint is SHA256:..."
   // "Are you sure you want to continue connecting?"
 
-  const message = `You probably haven't connected to this host before.\n\nThe authenticity of host '${host}' can't be established.\n\n${fingerprintMsg}\n\nAre you sure you want to continue connecting?`;
+  const message = `You probably haven't tunnelled to this host before.\n\nThe authenticity of host '${host}' can't be established.\n\n${fingerprintMsg}\n\nAre you sure you want to continue connecting?`;
 
   const { response } = await showCustomDialog({
         title: 'Security Warning',
@@ -334,8 +358,30 @@ async function checkAndPromptHost(host) {
           if (!fs.existsSync(sshDir)) {
               fs.mkdirSync(sshDir, { recursive: true });
           }
-          fs.appendFileSync(knownHostsPath, scanOutput + '\n');
+
+          // Filter out comments and empty lines
+          const validLines = scanOutput.split('\n')
+              .map(line => line.trim())
+              .filter(line => line.length > 0 && !line.startsWith('#'));
+
+          if (validLines.length === 0) {
+              log('No valid keys found in ssh-keyscan output.');
+              return true; // Let SSH try on its own
+          }
+
+          let content = validLines.join('\n') + '\n';
+
+          if (fs.existsSync(knownHostsPath)) {
+              const currentContent = fs.readFileSync(knownHostsPath, 'utf8');
+              if (currentContent.length > 0 && !currentContent.endsWith('\n')) {
+                  content = '\n' + content;
+              }
+          }
+
+          fs.appendFileSync(knownHostsPath, content);
           log(`Added ${host} to known_hosts.`);
+
+          await new Promise(r => setTimeout(r, 200));
           return true;
       } catch (err) {
           log(`Failed to write known_hosts: ${err.message}`);
@@ -422,11 +468,14 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
           log(`Connection to ${host} aborted by user (Host verification rejected).`);
           return;
       }
+      log(`Host verifiction passed for ${host}.`);
   } catch (err) {
       log(`Host verification check error: ${err.message}`);
       // Proceed blindly? or abort?
       // Proceeding lets standard SSH handling take over
   }
+
+  log('Preparing to spawn SSH process...');
 
   const sshArgs = ['-v', '-L', `${finalPort}:127.0.0.1:${remotePort}`];
   if (user) {
@@ -497,6 +546,9 @@ async function launchTunnel({ user, host, localPort, remotePort, launchUrl }) {
             }
             if (outputLower.includes('could not resolve hostname')) {
                 errors.push(`Could not find host '${host}' 😔\n\nHave you added this host to your SSH config yet? 🤔\n\nPlease check your ~/.ssh/config file 🫡`);
+            }
+            if (outputLower.includes('host key verification failed') || outputLower.includes('server rejected our key')) {
+                errors.push(`Host key verification failed 😔\n\nIt seems the server's identity has changed, or we failed to save the key correctly.\n\nYou may need to remove the old key from your known_hosts file manually.`);
             }
 
             if (errors.length > 0) {
@@ -628,10 +680,19 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.ccd.tunnelhelper');
+  }
+
   app.on('second-instance', (event, commandLine) => {
     log(`Second instance detected with args: ${JSON.stringify(commandLine)}`);
     const url = commandLine.find(arg => arg.startsWith('ccd-tunnel://'));
     if (url) handleTunnel(url);
+  });
+
+  // Prevent app from quitting when all windows (dialogs) are closed
+  app.on('window-all-closed', () => {
+    // Do nothing, keep running in tray
   });
 
   app.whenReady().then(() => {
