@@ -1,6 +1,6 @@
 {
     "name": "ccd-tunnel-helper",
-    "version": "1.3.4",
+    "version": "1.3.5",
     "description": "Auto-connect SSH tunnels via ccd-tunnel:// links",
     "author": "Ben Beckford <ben@ccdstudios.com>",
     "main": "main.js",
