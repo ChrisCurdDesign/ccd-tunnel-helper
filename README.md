@@ -25,7 +25,7 @@ The app will automatically register the `ccd-tunnel://` protocol on your system.
 Once installed, you can click links like:
 
 ```html
-<a href="ccd-tunnel://connect?user=ccd_devs&host=123.456.789.123&local_port=2025&remote_port=2025&launch=http%3A%2F%2Flocalhost%3A2025%2Fphpmyadmin%2F">Connect to Dev Server</a>
+<a href="ccd-tunnel://connect?host=123.456.789.123&local_port=2025&remote_port=2025&launch=http%3A%2F%2Flocalhost%3A2025%2Fphpmyadmin%2F">Connect to Dev Server</a>
 ```
 
 The app will open a background tunnel and optionally launch a browser window.
@@ -34,16 +34,16 @@ The app will open a background tunnel and optionally launch a browser window.
 
 | Parameter    | Description                          |
 |:-------------|:-------------------------------------|
-| `user`       | SSH username                         |
 | `host`       | SSH host IP or DNS name              |
 | `local_port` | Local port to bind                   |
 | `remote_port`| Remote port to connect               |
 | `launch`     | Optional URL to open after tunneling |
+| `force_user` | Optional force SSH username          |
 
 Example link:
 
 ```html
-ccd-tunnel://connect?user=ccd_devs&host=123.456.789.123&local_port=2025&remote_port=2025&launch=http%3A%2F%2Flocalhost%3A2025%2Fphpmyadmin%2F
+ccd-tunnel://connect?host=123.456.789.123&local_port=2025&remote_port=2025&launch=http%3A%2F%2Flocalhost%3A2025%2Fphpmyadmin%2F
 ```
 
 ---
