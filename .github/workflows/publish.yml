@@ -99,14 +99,15 @@ jobs:
           echo "Publishing release for $TAG"
 
           # Find the artifact files
-          FILES=$(find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \))
+          # Exclude builder-debug.yml which causes conflicts
+          FILES=$(find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) ! -name 'builder-debug.yml')
 
           echo "Files to upload:"
           echo "$FILES"
 
           # Create release and upload files
           # This command will automatically create the tag if it doesn't exist
-          echo "$FILES" | xargs gh release create "$TAG" \
+          # We use --clobber to overwrite assets if they partially exist from a failed run
             --repo "$GITHUB_REPOSITORY" \
             --title "Release $TAG" \
             --generate-notes \
