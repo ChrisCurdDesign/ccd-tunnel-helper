@@ -70,7 +70,14 @@
             "icon": "icon.png"
         },
         "mac": {
-            "target": "dmg",
+            "target": [
+                {
+                    "target": "dmg",
+                    "arch": [
+                        "universal"
+                    ]
+                }
+            ],
             "icon": "icon.png",
             "category": "public.app-category.utilities"
         },
